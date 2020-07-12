@@ -1,0 +1,84 @@
+version: '3'
+services:
+
+  #mysql service
+  mysql:
+    build:
+      context: ./mysql
+    image: mysql
+    container_name: mysql
+    env_file:
+      - ./mysql/.env
+    ports:
+      - 3306:3306
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - xmpp-network
+
+  #ejabberd XMPP Server
+  ejabberd:
+    build:
+      context: ./ejabberd
+    image: ejabberd
+    container_name: ejabberd
+    ports:
+      - 4560:4560
+      - 5222:5222
+      - 5269:5269
+      - 5280:5280
+      - 5443:5443
+      - 1883:1883
+    working_dir: /home/ejabberd
+    networks:
+      - xmpp-network
+
+ #User GRPC service
+  grpc-user:
+    build:
+      context: ./grpc-user
+    image: grpc-user
+    container_name: grpc-user
+    restart: unless-stopped
+    environment:
+      - MYSQL_HOST=192.168.99.100
+      - MYSQL_USER=ejabberd
+      - MYSQL_PASSWORD=password
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=ejabberd
+    ports:
+      - 8001:8001
+    working_dir: /app
+    volumes:
+      - ./grpc-user:/app
+    networks:
+      - xmpp-network
+  
+  # Chat GRPC service
+  # app:
+  #   build:
+  #     context: ./chat-grpc
+  #   image: chat-grpc
+  #   container_name: chat-grpc
+  #   restart: unless-stopped
+  #   environment:
+  #     - MYSQL_HOST=192.168.99.100
+  #     - MYSQL_USER=ejabberd
+  #     - MYSQL_PASSWORD=password
+  #     - MYSQL_PORT=3306
+  #     - MYSQL_DATABASE=ejabberd
+  #   ports:
+  #     - 5000:5000
+  #   working_dir: /app
+  #   volumes:
+  #     - ./chat-grpc:/app
+  #   networks:
+  #     - xmpp-network
+
+networks:
+  xmpp-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local

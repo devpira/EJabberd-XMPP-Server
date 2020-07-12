@@ -15,18 +15,19 @@
 ###
 
 hosts:
-  - 192.168.99.100
+  - "192.168.99.100"
 
-loglevel: 4
+loglevel: 5
 log_rotate_size: 10485760
 log_rotate_date: ""
 log_rotate_count: 1
 log_rate_limit: 100
 
 certfiles:
-  - /home/ejabberd/conf/server.pem
+  - "/etc/letsencrypt/live/localhost/fullchain.pem"
+  - "/etc/letsencrypt/live/localhost/privkey.pem"
 
-ca_file: "/home/ejabberd/conf/cacert.pem"
+#ca_file: "/home/ejabberd/conf/cacert.pem"
 
 ## When using let's encrypt to generate certificates
 ##certfiles:
@@ -54,24 +55,23 @@ listen:
     ip: "::"
     module: ejabberd_http
     request_handlers:
-      "/admin": ejabberd_web_admin
       "/api": mod_http_api
       "/bosh": mod_bosh
-      "/captcha": ejabberd_captcha
       "/upload": mod_http_upload
       "/ws": ejabberd_http_ws
-      "/oauth": ejabberd_oauth
+    web_admin: true
+    captcha: true
   -
     port: 5280
     ip: "::"
     module: ejabberd_http
     request_handlers:
       "/admin": ejabberd_web_admin
-  -
-    port: 1883
-    ip: "::"
-    module: mod_mqtt
-    backlog: 1000
+ # -
+ #   port: 1883
+ #   ip: "::"
+ #   module: mod_mqtt
+ #   backlog: 1000
   ##
   ## https://docs.ejabberd.im/admin/configuration/#stun-and-turn
   ## ejabberd_stun: Handles STUN Binding requests
@@ -129,29 +129,47 @@ acl:
     user_regexp: ""
   loopback:
     ip:
-      - 127.0.0.0/8
-      - ::1/128
-      - ::FFFF:127.0.0.1/128
+      - "127.0.0.0/8"
+      - "::1/128"
+      - "::FFFF:127.0.0.1/128"
   admin:
     user:
       - "admin@192.168.99.100"
 
+# access_rules:
+#   local:
+#     allow: local
+#   c2s:
+#     deny: blocked
+#     allow: all
+#   announce:
+#     allow: admin
+#   configure:
+#     allow: admin
+#   muc_create:
+#     allow: local
+#   pubsub_createnode:
+#     allow: local
+#   trusted_network:
+#     allow: loopback
 access_rules:
   local:
-    allow: local
+    - allow: local
   c2s:
-    deny: blocked
-    allow: all
-  announce:
-    allow: admin
+    - deny: blocked
+    - allow
+  annouce:
+    - allow: admin
   configure:
-    allow: admin
+    - allow: admin
   muc_create:
-    allow: local
+    - allow: local
   pubsub_createnode:
-    allow: local
+    - allow: local
+  register:
+    - allow
   trusted_network:
-    allow: loopback
+    - allow: loopback
 
 api_permissions:
   "console commands":
@@ -161,26 +179,26 @@ api_permissions:
     what: "*"
   "admin access":
     who:
-      access:
-        allow:
-          acl: loopback
-          acl: admin
-      oauth:
-        scope: "ejabberd:admin"
-        access:
-          allow:
-            acl: loopback
-            acl: admin
+      - access:
+          - allow:
+            - acl: loopback
+            - acl: admin
+      - oauth:
+          - scope: "ejabberd:admin"
+          - access:
+            - allow:
+              - acl: loopback
+              - acl: admin
     what:
       - "*"
       - "!stop"
       - "!start"
   "public commands":
     who:
-      ip: 127.0.0.1/8
+      ip: "127.0.0.1/8"
     what:
-      - status
-      - connected_users_number
+      - "status"
+      - "connected_users_number"
 
 shaper:
   normal: 1000
@@ -189,18 +207,18 @@ shaper:
 shaper_rules:
   max_user_sessions: 10
   max_user_offline_messages:
-    5000: admin
-    100: all
+    - 5000: admin
+    - 100
   c2s_shaper:
-    none: admin
-    normal: all
+    - none: admin
+    - normal
   s2s_shaper: fast
 
-max_fsm_queue: 10000
+#max_fsm_queue: 10000
 
-acme:
-   contact: "mailto:example-admin@example.com"
-   ca_url: "https://acme-v01.api.letsencrypt.org"
+#acme:
+#   contact: "mailto:example-admin@example.com"
+#   ca_url: "https://acme-v01.api.letsencrypt.org"
 
 modules:
   mod_adhoc: {}
@@ -218,16 +236,16 @@ modules:
   mod_fail2ban: {}
   mod_http_api: {}
   mod_http_upload:
-    put_url: https://@HOST@:5443/upload
+    put_url: "https://@HOST@:5443/upload"
   mod_last: {}
   mod_mam:
     ## Mnesia is limited to 2GB, better to use an SQL backend
     ## For small servers SQLite is a good fit and is very easy
     ## to configure. Uncomment this when you have SQL configured:
-    ## db_type: sql
+    db_type: sql
     assume_mam_usage: true
-    default: never
-  mod_mqtt: {}
+    default: always
+  #mod_mqtt: {}
   mod_muc:
     access:
       - allow
@@ -235,11 +253,11 @@ modules:
       - allow: admin
     access_create: muc_create
     access_persistent: muc_create
-    access_mam:
-      - allow
+    #access_mam:
+    #  - allow
     default_room_options:
-      allow_subscription: true  # enable MucSub
-      mam: false
+      #allow_subscription: true  # enable MucSub
+      mam: true
   mod_muc_admin: {}
   mod_offline:
     access_max_user_messages: max_user_offline_messages
@@ -252,11 +270,15 @@ modules:
   mod_pubsub:
     access_createnode: pubsub_createnode
     plugins:
-      - flat
-      - pep
+      - "flat"
+      - "pep"
     force_node_config:
+      ## Change from "whitelist" to "open" to enable OMEMO support
+      ## See https://github.com/processone/ejabberd/issues/2425
+      "eu.siacs.conversations.axolotl.*":
+        access_model: whitelist
       ## Avoid buggy clients to make their bookmarks public
-      storage:bookmarks:
+      "storage:bookmarks":
         access_model: whitelist
   mod_push: {}
   mod_push_keepalive: {}
@@ -269,7 +291,7 @@ modules:
     ip_access: trusted_network
   mod_roster:
     versioning: true
-  mod_sip: {}
+  #mod_sip: {}
   mod_s2s_dialback: {}
   mod_shared_roster: {}
   mod_stream_mgmt:
@@ -278,6 +300,21 @@ modules:
   mod_vcard_xupdate: {}
   mod_version:
     show_os: false
+
+sql_type: mysql
+sql_server: "192.168.99.100"
+sql_database: "ejabberd"
+sql_username: "ejabberd"
+sql_password: "password"
+## If you want to specify the port:
+sql_port: 3306
+default_db: sql
+#auth_method: sql
+
+auth_method: [external]
+extauth_program: "python /home/ejabberd/etc/ejabberd/external_auth_script.py"
+extauth_pool_size: 3
+auth_use_cache: false
 
 ### Local Variables:
 ### mode: yaml

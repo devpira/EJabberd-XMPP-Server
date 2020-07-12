@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package xmpp.ejabberd.grpc.user;
+
+service User {
+    rpc isUserExists(isUserExistsRequest) returns (isUserExistsResponse);
+}
+
+message isUserExistsRequest {
+    string username = 1;
+}
+
+message isUserExistsResponse {
+    bool result = 1;
+}
